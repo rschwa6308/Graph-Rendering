@@ -13,7 +13,7 @@ TARGET_FPS = 60
 TIMESTEP_PER_FRAME = 0.05
 VIEWPORT_SHIFT_SPEED = 0.01     # viewport widths
 VIEWPORT_ZOOM_FACTOR = 1.1
-CONSTANT_SCALE_FACTOR = 1.1
+CONSTANT_SCALE_FACTOR = 1.02
 
 MIN_SCREEN_WIDTH = 160          # px
 MIN_SCREEN_HEIGHT = 120         # px
@@ -138,15 +138,16 @@ def run_system(system):
         elif pygame.K_DOWN in keys_pressed:
             system.repulsion_coefficient /= CONSTANT_SCALE_FACTOR
 
-        
         viewport.shift(viewport_vel * VIEWPORT_SHIFT_SPEED)
         
         screen.fill(WHITE)
         render_system(system, viewport, screen)
 
         actual_fps = clock.get_fps()
-        text_img = text_font.render(f'FPS: {round(actual_fps)}', True, BLACK)
-        screen.blit(text_img, (2, 2))
+        fps_img = text_font.render(f'FPS: {actual_fps:.0f}', True, BLACK)
+        repulsion_img = text_font.render(f'Repulsion: {system.repulsion_coefficient:.2f}', True, BLACK)
+        screen.blit(fps_img, (2, 2))
+        screen.blit(repulsion_img, (2, 2 + fps_img.get_height()))
 
         pygame.display.update()
         system.step(TIMESTEP_PER_FRAME)
