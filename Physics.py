@@ -3,9 +3,11 @@ from random import randint, choice, sample, uniform
 
 
 BODY_DENSITY = 5.0
+AGITATION_MAGNITUDE = 1
+
+# Initial Values
 FRICTION_COEFFICIENT = 0.1
 REPULSION_COEFFICIENT = 0.1
-AGITATION_MAGNITUDE = 1
 
 
 class Body:
@@ -37,24 +39,24 @@ def projection(a, b):
 
 class System:
     @staticmethod
-    def from_graph(graph, max_spring_length=1):
+    def from_graph(graph, spring_length=1):
         body_map = {v: Body((uniform(1, 7), uniform(1, 5)), 1) for v in graph.vertices}
         bodies = list(body_map.values())
         springs = [
-            Spring((body_map[e[0]], body_map[e[1]]), max_spring_length / e[2], e[2], 0.2)
+            Spring((body_map[e[0]], body_map[e[1]]), spring_length, e[2], 0.2)
             for e in graph.edges
         ]
         return System(bodies, springs)
     
     @staticmethod
-    def random(num_bodies, num_springs):
+    def random(num_bodies, num_springs, spring_length=1):
         num_springs = max(num_bodies, num_springs)
         bodies = [Body((uniform(1, 7), uniform(1, 5)), randint(1, 5)) for _ in range(num_bodies)]
         springs = [
-            Spring((a, choice([b for b in bodies if a is not b])), randint(1, 3), uniform(0.5, 2), uniform(0.1, 1.0))
+            Spring((a, choice([b for b in bodies if a is not b])), spring_length, uniform(0.5, 5), 2.0)
             for a in bodies
         ] + [
-            Spring(sample(bodies, 2), randint(1, 3), uniform(0.5, 2), uniform(0.1, 1.0))
+            Spring(sample(bodies, 2), spring_length, uniform(0.5, 5), 2.0)
             for _ in range(num_springs - num_bodies)
         ]
         return System(bodies, springs)
@@ -62,7 +64,9 @@ class System:
     def __init__(self, bodies, springs):
         self.bodies = bodies
         self.springs = springs
-    
+        self.repulsion_coefficient = REPULSION_COEFFICIENT
+        self.friction_coefficient = FRICTION_COEFFICIENT
+
     def agitate(self):
         n = len(self.bodies)
         forces = [V2(uniform(-1, 1), uniform(-1, 1)) * AGITATION_MAGNITUDE for _ in range(n)]
@@ -90,12 +94,12 @@ class System:
             for j in range(i + 1, len(self.bodies)):
                 a, b = self.bodies[i], self.bodies[j]
                 disp = a.pos - b.pos
-                force = disp * (1 / disp.length_squared()) * REPULSION_COEFFICIENT
+                force = disp * (1 / disp.length_squared()) * self.repulsion_coefficient
                 a.apply_impulse(force, timestep)
                 b.apply_impulse(-force, timestep)
 
         for b in self.bodies:
-            friction = b.vel * b.mass * -FRICTION_COEFFICIENT   # use b.vel.normalize() for absolute friction
+            friction = b.vel * b.mass * -self.friction_coefficient   # use b.vel.normalize() for absolute friction
             b.apply_impulse(friction, timestep)
             b.update_position(timestep)
     
