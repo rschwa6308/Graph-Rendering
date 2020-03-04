@@ -4,6 +4,7 @@ from pygame.math import Vector2 as V2
 from random import randint, choice, sample, uniform
 
 from Physics import *
+from UIHelpers import *
 
 
 BLACK = (0, 0, 0)
@@ -39,20 +40,6 @@ class Viewport:
         self.dims = (self.dims[0] * width_scale, self.dims[1] * height_scale)
 
 
-def draw_aaline(surf, start, end, color, width=2):
-    offset = V2(end) - V2(start)
-    offset.scale_to_length(width // 2)
-    offset = offset.rotate(90)
-    points = [
-        start + offset,
-        start - offset,
-        end - offset,
-        end + offset
-    ]
-    pygame.gfxdraw.aapolygon(surf, points, color)
-    pygame.gfxdraw.filled_polygon(surf, points, color)
-
-
 # Renders the given system onto img
 # viewport aspect ratio should match dims aspect ratio
 def render_system(system, viewport, img):
@@ -69,11 +56,21 @@ def render_system(system, viewport, img):
         draw_width = max(2, round(s.k * pixels_per_meter / 60))
         draw_aaline(img, start, end, BLACK, width=draw_width)
     
+    label_padding = 8
     for b in system.bodies:
         center = pos_to_render_pos(b.pos)
         radius = round(b.radius * pixels_per_meter)
         pygame.gfxdraw.filled_circle(img, *center, radius, b.color)
         pygame.gfxdraw.aacircle(img, *center, radius, b.color)
+        if b.label and radius >= label_padding * 2:
+            text = b.label if len(b.label) >= 5 else f' {b.label} '
+            label_font = get_sized_font('Arial', text, radius * 2 - label_padding * 2)
+            label_img = label_font.render(b.label, True, BLACK)
+            topleft = (
+                center[0] - label_img.get_width() // 2,
+                center[1] - label_img.get_height() // 2
+            )
+            img.blit(label_img, topleft)
 
     return img
 
@@ -160,6 +157,6 @@ if __name__ == '__main__':
     #     [Spring((a, b), 3, 1, 0.2), Spring((b, c), 1, 1, 0.1)]
     # )
 
-    test_system = System.random(100, 120)
+    test_system = System.random(50, 60)
 
     run_system(test_system)

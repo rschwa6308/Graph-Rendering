@@ -11,12 +11,13 @@ REPULSION_COEFFICIENT = 0.1
 
 
 class Body:
-    def __init__(self, pos, mass, radius=None, color=None):
+    def __init__(self, pos, mass, radius=None, color=None, label=None):
         self.mass = mass
         self.radius = radius if radius else (mass ** 0.5) / BODY_DENSITY
-        self.color = (randint(0, 255), randint(0, 255), randint(0, 255))
+        self.color = (randint(127, 255), randint(127, 255), randint(127, 255))
         self.pos = V2(pos)
         self.vel = V2(0, 0)
+        self.label = label
     
     def apply_impulse(self, force, duration):
         self.vel += force * duration / self.mass
@@ -39,11 +40,11 @@ def projection(a, b):
 
 class System:
     @staticmethod
-    def from_graph(graph, spring_length=1):
-        body_map = {v: Body((uniform(1, 7), uniform(1, 5)), 1) for v in graph.vertices}
+    def from_graph(graph, spring_length_function=lambda w: 1, k_function=lambda w: w):
+        body_map = {v: Body((uniform(1, 7), uniform(1, 5)), 1, label=str(v)) for v in graph.vertices}
         bodies = list(body_map.values())
         springs = [
-            Spring((body_map[e[0]], body_map[e[1]]), spring_length, e[2], 0.2)
+            Spring((body_map[e[0]], body_map[e[1]]), spring_length_function(e[2]), k_function(e[2]), 0.2)
             for e in graph.edges
         ]
         return System(bodies, springs)

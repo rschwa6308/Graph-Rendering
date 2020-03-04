@@ -8,7 +8,10 @@ class Graph:
         return Graph(vertices, edges)
 
     def __init__(self, vertices, edges):
+        for e in edges:
+            for v in e[:2]:
+                if v not in vertices:
+                    raise Exception(f'Nonexistent vertex present in edge list: {v}')
         self.vertices = vertices
         self.edges = edges
-        if any(v not in vertices for e in edges for v in e):
-            raise Exception('Nonexistent vertex present in edge list')
+
