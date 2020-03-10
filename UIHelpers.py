@@ -2,6 +2,7 @@ from pygame.math import Vector2 as V2
 import pygame.gfxdraw
 import pygame.draw
 from functools import lru_cache
+from math import floor, ceil
 
 
 def draw_aaline(surf, start, end, color, width):
@@ -9,14 +10,20 @@ def draw_aaline(surf, start, end, color, width):
         pygame.draw.line(surf, color, start, end, width)
         return
     
-    offset = V2(end) - V2(start)
-    offset.scale_to_length(width // 2)
-    offset = offset.rotate(90)
+    if start == end:
+        return
+    
+    offset_a = V2(end) - V2(start)
+    offset_b = V2(offset_a)
+    offset_a.scale_to_length(floor(width / 2))
+    offset_b.scale_to_length(ceil(width / 2))
+    offset_a = offset_a.rotate(90)
+    offset_b = offset_b.rotate(90)
     points = [
-        start + offset,
-        start - offset,
-        end - offset,
-        end + offset
+        start + offset_a,
+        start - offset_b,
+        end - offset_b,
+        end + offset_a
     ]
     pygame.gfxdraw.aapolygon(surf, points, color)
     pygame.gfxdraw.filled_polygon(surf, points, color)
@@ -42,13 +49,12 @@ def draw_aacircle(surf, center, radius, color):
     pygame.gfxdraw.aacircle(surf, *center, radius, color)
 
 
+pygame.font.init()
 # Binary search to find a font size s.t. the given text fills width_px pixels horizontally
-@lru_cache(maxsize=20)  # for good measure
+@lru_cache(maxsize=1000)
 def get_sized_font(font_family, text, width_px, bold=False):
-    pygame.font.init()
-
     size_lower_bound = 8
-    size_upper_bound = 200
+    size_upper_bound = 100
 
     font = None
     size = width_px  # initial guess
@@ -68,3 +74,12 @@ def get_sized_font(font_family, text, width_px, bold=False):
 
 def bounding_box(rect_list):
     return rect_list[0].unionall(rect_list[1:])
+
+
+def ccw(A, B, C):
+    return (C.y - A.y) * (B.x - A.x) > (B.y - A.y) * (C.x - A.x)
+
+# Return true if line segments AB and CD intersect
+def line_segment_intersect(line_a, line_b):
+    A, B, C, D = *line_a, *line_b
+    return ccw(A,C,D) != ccw(B,C,D) and ccw(A,B,C) != ccw(A,B,D)

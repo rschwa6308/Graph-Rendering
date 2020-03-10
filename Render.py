@@ -2,6 +2,7 @@ import pygame
 import pygame.gfxdraw
 from pygame.math import Vector2 as V2
 from random import randint, choice, sample, uniform
+from functools import lru_cache
 
 from Physics import *
 from UIHelpers import *
@@ -48,9 +49,23 @@ def render_system(system, viewport, img):
     def pos_to_render_pos(pos):
         render_vect = (pos - viewport.topleft) * pixels_per_meter
         return (round(render_vect.x), round(render_vect.y))
+    
+    def body_in_viewport(body):
+        x, y, r = *body.pos, body.radius
+        vx, vy, w, h = *viewport.topleft, *viewport.dims
+        return vx - r <= x <= vx + w + r and vy - r <= y <= vy + h + r      # TODO: bottom-edge clipping
+    
+    tl, w, h = viewport.topleft, *viewport.dims
+    viewport_points = [tl, tl + (w, 0), tl + (w, h), tl + (0, h)]
+    viewport_sides = [(viewport_points[i], viewport_points[i + 1]) for i in range(-1, 3)]
+    def spring_in_viewport(spring):
+        spring_segment = (spring.endpoints[0].pos, spring.endpoints[1].pos)
+        return any(body_in_viewport(b) for b in spring.endpoints) or \
+               any(line_segment_intersect(spring_segment, side) for side in viewport_sides)
 
     # springs
     for s in system.springs:
+        if not spring_in_viewport(s): continue
         start = pos_to_render_pos(s.endpoints[0].pos)
         end = pos_to_render_pos(s.endpoints[1].pos)
         draw_width = max(2, round(s.k * pixels_per_meter / 60))
@@ -60,6 +75,7 @@ def render_system(system, viewport, img):
     label_padding = 8
     lock_indicator_width = 3
     for b in system.bodies:
+        if not body_in_viewport(b): continue
         center = pos_to_render_pos(b.pos)
         radius = round(b.radius * pixels_per_meter)
         if b.locked: draw_aacircle(img, center, radius + lock_indicator_width, BLACK)
@@ -222,6 +238,6 @@ if __name__ == '__main__':
     #     [Spring((a, b), 3, 1, 0.2), Spring((b, c), 1, 1, 0.1)]
     # )
 
-    test_system = System.random(50, 60)
+    test_system = System.random(100, 120)
 
     run_system(test_system)

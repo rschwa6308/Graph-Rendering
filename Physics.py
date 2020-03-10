@@ -1,5 +1,6 @@
 from pygame.math import Vector2 as V2
 from random import randint, choice, sample, uniform
+from string import ascii_lowercase
 
 
 BODY_DENSITY = 5.0
@@ -60,8 +61,10 @@ class System:
     
     @staticmethod
     def random(num_bodies, num_springs, spring_length=1):
+        def random_label():
+            return ''.join(choice(ascii_lowercase) for _ in range(3))
         num_springs = max(num_bodies, num_springs)
-        bodies = [Body((uniform(1, 7), uniform(1, 5)), randint(1, 5)) for _ in range(num_bodies)]
+        bodies = [Body((uniform(1, 7), uniform(1, 5)), randint(1, 5), label=random_label()) for _ in range(num_bodies)]
         springs = [
             Spring((a, choice([b for b in bodies if a is not b])), spring_length, uniform(0.5, 5), 2.0)
             for a in bodies
