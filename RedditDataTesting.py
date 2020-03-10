@@ -19,7 +19,7 @@ music_subreddits_graph = Graph(
 )
 
 system = System.from_graph(music_subreddits_graph, k_function=lambda w: 2 ** (w * 50))
-for s in system.springs:
-    print(s.k)
+# for s in system.springs:
+#     print(s.k)
 
 run_system(system)

@@ -18,9 +18,18 @@ class Body:
         self.pos = V2(pos)
         self.vel = V2(0, 0)
         self.label = label
+        self.locked = False
+    
+    def toggle_lock(self):
+        if self.locked:
+            self.locked = False
+        else:
+            self.locked = True
+            self.vel = V2(0, 0)
     
     def apply_impulse(self, force, duration):
-        self.vel += force * duration / self.mass
+        if not self.locked:
+            self.vel += force * duration / self.mass
     
     def update_position(self, timestep):
         self.pos += self.vel * timestep
@@ -44,7 +53,7 @@ class System:
         body_map = {v: Body((uniform(1, 7), uniform(1, 5)), 1, label=str(v)) for v in graph.vertices}
         bodies = list(body_map.values())
         springs = [
-            Spring((body_map[e[0]], body_map[e[1]]), spring_length_function(e[2]), k_function(e[2]), 0.2)
+            Spring((body_map[e[0]], body_map[e[1]]), spring_length_function(e[2]), k_function(e[2]), 0.5)
             for e in graph.edges
         ]
         return System(bodies, springs)
@@ -67,6 +76,9 @@ class System:
         self.springs = springs
         self.repulsion_coefficient = REPULSION_COEFFICIENT
         self.friction_coefficient = FRICTION_COEFFICIENT
+    
+    def get_bodies_at(self, pos):
+        return [b for b in self.bodies if (pos - b.pos).length() <= b.radius]
 
     def agitate(self):
         n = len(self.bodies)
@@ -103,4 +115,3 @@ class System:
             friction = b.vel * b.mass * -self.friction_coefficient   # use b.vel.normalize() for absolute friction
             b.apply_impulse(friction, timestep)
             b.update_position(timestep)
-    

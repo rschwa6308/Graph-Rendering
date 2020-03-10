@@ -14,4 +14,3 @@ class Graph:
                     raise Exception(f'Nonexistent vertex present in edge list: {v}')
         self.vertices = vertices
         self.edges = edges
-

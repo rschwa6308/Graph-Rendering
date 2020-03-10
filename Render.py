@@ -5,16 +5,15 @@ from random import randint, choice, sample, uniform
 
 from Physics import *
 from UIHelpers import *
-
-
-BLACK = (0, 0, 0)
-WHITE = (255, 255, 255)
+from UIElements import *
+from Colors import *
+from Images import *
 
 TARGET_FPS = 60
 TIMESTEP_PER_FRAME = 0.05
 VIEWPORT_SHIFT_SPEED = 0.01     # viewport widths
 VIEWPORT_ZOOM_FACTOR = 1.1
-CONSTANT_SCALE_FACTOR = 1.02
+CONSTANT_SCALE_FACTOR = 1.1
 
 MIN_SCREEN_WIDTH = 160          # px
 MIN_SCREEN_HEIGHT = 120         # px
@@ -50,18 +49,21 @@ def render_system(system, viewport, img):
         render_vect = (pos - viewport.topleft) * pixels_per_meter
         return (round(render_vect.x), round(render_vect.y))
 
+    # springs
     for s in system.springs:
         start = pos_to_render_pos(s.endpoints[0].pos)
         end = pos_to_render_pos(s.endpoints[1].pos)
         draw_width = max(2, round(s.k * pixels_per_meter / 60))
         draw_aaline(img, start, end, BLACK, width=draw_width)
     
+    # bodies
     label_padding = 8
+    lock_indicator_width = 3
     for b in system.bodies:
         center = pos_to_render_pos(b.pos)
         radius = round(b.radius * pixels_per_meter)
-        pygame.gfxdraw.filled_circle(img, *center, radius, b.color)
-        pygame.gfxdraw.aacircle(img, *center, radius, b.color)
+        if b.locked: draw_aacircle(img, center, radius + lock_indicator_width, BLACK)
+        draw_aacircle(img, center, radius, b.color)
         if b.label and radius >= label_padding * 2:
             text = b.label if len(b.label) >= 5 else f' {b.label} '
             label_font = get_sized_font('Arial', text, radius * 2 - label_padding * 2)
@@ -83,28 +85,77 @@ def run_system(system):
     screen = pygame.display.set_mode(screen_dims, pygame.RESIZABLE)
     screen.fill(WHITE)
 
-    pygame.font.init()
-    text_font = pygame.font.SysFont('Arial', 20, bold=True)
+    def update_repulsion(new_value):
+        system.repulsion_coefficient = new_value
+    
+    def update_friction(new_value):
+        system.friction_coefficient = new_value
+
+    # Initialize elements
+    fps_indicator = Text((2, 2), '')
+    repulsion_editor = ValueEditor((2, 50), 'Repulsion', system.repulsion_coefficient, lambda v: update_repulsion(v))
+    friction_editor = ValueEditor((2, repulsion_editor.rect.bottom + 10), 'Friction', system.friction_coefficient, lambda v: update_friction(v))
+    elements = [
+        fps_indicator,
+        repulsion_editor,
+        friction_editor
+    ]
+    element_selected = None
 
     keys_pressed = set()
+    body_selected = None
+
+    def pixel_to_meter(pos_px):
+        meters_per_pixel = viewport.dims[0] / screen_dims[0]
+        return viewport.topleft + meters_per_pixel * V2(pos_px)
+
+    def get_element_at_px(pos_px):
+        elems_hit = [e for e in elements if e.intersects_point(pos_px)]
+        return elems_hit[0] if elems_hit else None
+
+    def get_body_at_px(pos_px):
+        pos = pixel_to_meter(pos_px)
+        bodies = system.get_bodies_at(pos)
+        return bodies[0] if bodies else None    # return the first one arbitrarily
 
     alive = True
     clock = pygame.time.Clock()
     while alive:
         clock.tick(TARGET_FPS)
 
+        # handle user input events
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+            if event.type == pygame.QUIT:   # quit gracefully
                 alive = False
+                continue
+
             elif event.type == pygame.KEYDOWN:
                 keys_pressed.add(event.key)
             elif event.type == pygame.KEYUP:
                 keys_pressed.remove(event.key)
+
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 4:   # zoom in
+                if event.button == 1:       # select body or press button
+                    body_selected = get_body_at_px(event.pos)
+                    element_selected = get_element_at_px(event.pos)
+                    if element_selected:
+                        element_selected.handle_mouse_down(event.pos)
+
+                elif event.button == 3:     # lock body
+                    body = get_body_at_px(event.pos)
+                    if body: body.toggle_lock()
+                elif event.button == 4:     # zoom in
                     viewport.zoom(1 / VIEWPORT_ZOOM_FACTOR)
-                elif event.button == 5: # zoom out
+                elif event.button == 5:     # zoom out
                     viewport.zoom(VIEWPORT_ZOOM_FACTOR)
+
+            elif event.type == pygame.MOUSEBUTTONUP:
+                if event.button == 1:
+                    body_selected = None
+                    if element_selected:
+                        element_selected.handle_mouse_up(event.pos)
+                        element_selected = None
+
             elif event.type == pygame.VIDEORESIZE:
                 new_screen_width = max(event.w, MIN_SCREEN_WIDTH)
                 new_screen_height = max(event.h, MIN_SCREEN_HEIGHT)
@@ -113,6 +164,7 @@ def run_system(system):
                 screen = pygame.display.set_mode(screen_dims, pygame.RESIZABLE)
                 viewport.refit_to_screen(old_screen_dims, screen_dims)
 
+        # handle viewport state changes
         if pygame.K_a in keys_pressed:
             viewport_vel.x = -1
         elif pygame.K_d in keys_pressed:
@@ -127,26 +179,39 @@ def run_system(system):
         else:
             viewport_vel.y = 0
         
+        viewport.shift(viewport_vel * VIEWPORT_SHIFT_SPEED)
+
+        # handle system state changes
         if pygame.K_SPACE in keys_pressed:
             system.agitate()
         
-        if pygame.K_UP in keys_pressed:
-            system.repulsion_coefficient *= CONSTANT_SCALE_FACTOR
-        elif pygame.K_DOWN in keys_pressed:
-            system.repulsion_coefficient /= CONSTANT_SCALE_FACTOR
-
-        viewport.shift(viewport_vel * VIEWPORT_SHIFT_SPEED)
+        # if pygame.K_UP in keys_pressed:
+        #     system.repulsion_coefficient *= CONSTANT_SCALE_FACTOR
+        # elif pygame.K_DOWN in keys_pressed:
+        #     system.repulsion_coefficient /= CONSTANT_SCALE_FACTOR
         
+        if body_selected:
+            pos_px = pygame.mouse.get_pos()
+            body_selected.pos = V2(pixel_to_meter(pos_px))
+        
+        # handle UI element state changes
+        actual_fps = clock.get_fps()
+        fps_indicator.set_text(f'FPS: {actual_fps:.0f}')
+        
+        # render current frame
         screen.fill(WHITE)
         render_system(system, viewport, screen)
 
-        actual_fps = clock.get_fps()
-        fps_img = text_font.render(f'FPS: {actual_fps:.0f}', True, BLACK)
-        repulsion_img = text_font.render(f'Repulsion: {system.repulsion_coefficient:.2f}', True, BLACK)
-        screen.blit(fps_img, (2, 2))
-        screen.blit(repulsion_img, (2, 2 + fps_img.get_height()))
+        for elem in elements:
+            elem.render_onto(screen)
+        
+        # test_rect = pygame.Rect(500, 500, 150, 100)
+        # draw_aarectangle(screen, test_rect, BLACK, 10)
+        # pygame.draw.rect(screen, (255, 0, 0), test_rect, 1)
 
         pygame.display.update()
+
+        # step system
         system.step(TIMESTEP_PER_FRAME)
 
 
