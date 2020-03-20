@@ -14,12 +14,13 @@ REPULSION_COEFFICIENT = 0.1
 class Body:
     def __init__(self, pos, mass, radius=None, color=None, label=None):
         self.mass = mass
-        self.radius = radius if radius else (mass ** 0.5) / BODY_DENSITY
+        self.radius = radius if radius else (mass ** (1/2)) / BODY_DENSITY
         self.color = (randint(127, 255), randint(127, 255), randint(127, 255))
         self.pos = V2(pos)
         self.vel = V2(0, 0)
         self.label = label
         self.locked = False
+        self.charge = self.mass     # directly proportional
     
     def toggle_lock(self):
         if self.locked:
@@ -50,9 +51,14 @@ def projection(a, b):
 
 class System:
     @staticmethod
-    def from_graph(graph, spring_length_function=lambda w: 1, k_function=lambda w: w):
-        body_map = {v: Body((uniform(1, 7), uniform(1, 5)), 1, label=str(v)) for v in graph.vertices}
+    def from_graph(graph, spring_length_function=lambda w: 1, k_function=lambda w: w, mass_function=lambda w: w):
+        if graph.weighted_vertices:
+            body_map = {v[0]: Body((uniform(1, 7), uniform(1, 5)), mass_function(v[1]), label=str(v[0])) for v in graph.vertex_weights}
+        else:
+            body_map = {v: Body((uniform(1, 7), uniform(1, 5)), 1, label=str(v)) for v in graph.vertices}
+        
         bodies = list(body_map.values())
+        print(bodies)
         springs = [
             Spring((body_map[e[0]], body_map[e[1]]), spring_length_function(e[2]), k_function(e[2]), 0.5)
             for e in graph.edges
@@ -110,7 +116,7 @@ class System:
             for j in range(i + 1, len(self.bodies)):
                 a, b = self.bodies[i], self.bodies[j]
                 disp = a.pos - b.pos
-                force = disp * (1 / disp.length_squared()) * self.repulsion_coefficient
+                force = disp * (a.charge * b.charge / disp.length_squared()) * self.repulsion_coefficient
                 a.apply_impulse(force, timestep)
                 b.apply_impulse(-force, timestep)
 

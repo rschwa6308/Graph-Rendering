@@ -59,7 +59,7 @@ class Button(UIElement):
         self.img = pygame.Surface(dims, pygame.SRCALPHA)
         scaled_src_img = pygame.transform.smoothscale(src_img, dims)
         self.img.blit(scaled_src_img, (0, 0))
-        print(self.rect)
+        # print(self.rect)
         draw_aarectangle(self.img, pygame.Rect((0, 0), self.rect.size), self.border_color, self.border_width)
         self.opacity_filter = pygame.Surface(dims, pygame.SRCALPHA)
         self.opacity_filter.fill((0, 0, 0, round(self.press_opacity * 255)))
