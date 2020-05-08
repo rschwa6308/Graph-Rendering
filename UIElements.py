@@ -52,7 +52,7 @@ class Button(UIElement):
     border_width = 1
     press_opacity = 0.5
 
-    def __init__(self, pos, dims, src_img, on_press):
+    def __init__(self, pos, dims, src_img, on_press, border=True, opacity=True):
         self.pos = pos
         self.rect = pygame.Rect(pos, dims)
 
@@ -60,16 +60,20 @@ class Button(UIElement):
         scaled_src_img = pygame.transform.smoothscale(src_img, dims)
         self.img.blit(scaled_src_img, (0, 0))
         # print(self.rect)
-        draw_aarectangle(self.img, pygame.Rect((0, 0), self.rect.size), self.border_color, self.border_width)
-        self.opacity_filter = pygame.Surface(dims, pygame.SRCALPHA)
-        self.opacity_filter.fill((0, 0, 0, round(self.press_opacity * 255)))
+        if border:
+            draw_aarectangle(self.img, pygame.Rect((0, 0), self.rect.size), self.border_color, self.border_width)
+        
+        self.opacity = opacity
+        if opacity:
+            self.opacity_filter = pygame.Surface(dims, pygame.SRCALPHA)
+            self.opacity_filter.fill((0, 0, 0, round(self.press_opacity * 255)))
 
         self.on_press = on_press
         self.pressed = False
 
     def render_onto(self, surf):
         surf.blit(self.img, self.pos)
-        if self.pressed:
+        if self.pressed and self.opacity:
             surf.blit(self.opacity_filter, self.pos)
 
     def handle_mouse_down(self, pos):
@@ -78,6 +82,38 @@ class Button(UIElement):
     def handle_mouse_up(self, pos):
         self.pressed = False
         self.on_press()
+
+
+class ToggleButton(Button):
+    def __init__(self, pos, dims, src_img_off, src_img_on, on_press, border=True, opacity=True):
+        self.pos = pos
+        self.rect = pygame.Rect(pos, dims)
+
+        self.img_off = pygame.Surface(dims, pygame.SRCALPHA)
+        scaled_src_img_off = pygame.transform.smoothscale(src_img_off, dims)
+        self.img_off.blit(scaled_src_img_off, (0, 0))
+
+        self.img_on = pygame.Surface(dims, pygame.SRCALPHA)
+        scaled_src_img_on = pygame.transform.smoothscale(src_img_on, dims)
+        self.img_on.blit(scaled_src_img_on, (0, 0))
+
+        if border:
+            draw_aarectangle(self.img_off, pygame.Rect((0, 0), self.rect.size), self.border_color, self.border_width)
+            draw_aarectangle(self.img_on, pygame.Rect((0, 0), self.rect.size), self.border_color, self.border_width)
+        
+        self.img = self.img_off     # default to off position
+        
+        self.opacity = opacity
+        if opacity:
+            self.opacity_filter = pygame.Surface(dims, pygame.SRCALPHA)
+            self.opacity_filter.fill((0, 0, 0, round(self.press_opacity * 255)))
+
+        self.on_press = on_press
+        self.pressed = False
+    
+    def handle_mouse_up(self, pos):
+        self.img = self.img_off if self.img is self.img_on else self.img_on
+        super().handle_mouse_up(pos)
 
 
 class ValueEditor(UIElement):

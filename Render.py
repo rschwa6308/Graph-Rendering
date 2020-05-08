@@ -83,7 +83,7 @@ def render_system(system, viewport, img):
         if b.label and radius >= label_padding * 2:
             text = b.label if len(b.label) >= 5 else f' {b.label} '
             label_font = get_sized_font('Arial', text, radius * 2 - label_padding * 2)
-            label_img = label_font.render(b.label, True, BLACK)
+            label_img = label_font.render(b.label, True, WHITE) # TODO: change color of text programatically
             topleft = (
                 center[0] - label_img.get_width() // 2,
                 center[1] - label_img.get_height() // 2
@@ -106,15 +106,25 @@ def run_system(system):
     
     def update_friction(new_value):
         system.friction_coefficient = new_value
+    
+    def toggle_animation():
+        system.animation_playing = not system.animation_playing
+    
+    def rewind_animation():
+        system.animation_clock = 0
 
     # Initialize elements
     fps_indicator = Text((2, 2), '')
-    repulsion_editor = ValueEditor((2, 50), 'Repulsion', system.repulsion_coefficient, lambda v: update_repulsion(v))
-    friction_editor = ValueEditor((2, repulsion_editor.rect.bottom + 10), 'Friction', system.friction_coefficient, lambda v: update_friction(v))
+    repulsion_editor = ValueEditor((2, 50), 'Repulsion', system.repulsion_coefficient, update_repulsion)
+    friction_editor = ValueEditor((2, repulsion_editor.rect.bottom + 10), 'Friction', system.friction_coefficient, update_friction)
+    play_button = ToggleButton((2, 200), (40, 40), play_icon, pause_icon, toggle_animation, border=False, opacity=False)
+    rewind_button = Button((2, 250), (40, 40), rewind_icon, rewind_animation, border=False, opacity=True)
     elements = [
         fps_indicator,
         repulsion_editor,
-        friction_editor
+        friction_editor,
+        play_button,
+        rewind_button
     ]
     element_selected = None
 

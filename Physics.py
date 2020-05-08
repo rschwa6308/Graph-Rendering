@@ -14,13 +14,13 @@ REPULSION_COEFFICIENT = 0.1
 class Body:
     def __init__(self, pos, mass, radius=None, color=None, label=None):
         self.mass = mass
-        self.radius = radius if radius else (mass ** (1/2)) / BODY_DENSITY
+        self.radius = radius if radius else (mass ** (1 / 2)) / BODY_DENSITY
         self.color = (randint(127, 255), randint(127, 255), randint(127, 255))
         self.pos = V2(pos)
         self.vel = V2(0, 0)
         self.label = label
         self.locked = False
-        self.charge = self.mass     # directly proportional
+        self.charge = self.mass ** (1 / 2)     # arbitrary relationship
     
     def toggle_lock(self):
         if self.locked:
@@ -47,6 +47,12 @@ class Spring:
 
 def projection(a, b):
     return b * (a.dot(b) / b.length_squared())
+
+
+def color_from_value(value):
+    # non-linear scale from blue (0) to red (1)
+    x = value ** 0.5
+    return (255 * x, 0, 255 * (1 - x))
 
 
 class System:
@@ -85,6 +91,19 @@ class System:
         self.springs = springs
         self.repulsion_coefficient = REPULSION_COEFFICIENT
         self.friction_coefficient = FRICTION_COEFFICIENT
+
+        self.animation_data = None
+        self.animation_playing = False
+        self.animation_clock = 0
+    
+    # data should be of form
+    # [(body_label, [(time, value), ...]), ...]
+    def add_animation_data(self, data, time_scale=1):
+        self.animation_data = {}
+        for entry in data:
+            label, points = entry
+            self.animation_data[label] = [(p[0] * time_scale, p[1]) for p in points]
+        print(self.animation_data)
     
     def get_bodies_at(self, pos):
         return [b for b in self.bodies if (pos - b.pos).length() <= b.radius]
@@ -124,3 +143,21 @@ class System:
             friction = b.vel * b.mass * -self.friction_coefficient   # use b.vel.normalize() for absolute friction
             b.apply_impulse(friction, timestep)
             b.update_position(timestep)
+        
+        # handle animation changes
+        if self.animation_data and self.animation_playing:
+            self.animation_clock += timestep
+            for b in self.bodies:
+                points = self.animation_data[b.label]
+                point_found = False
+                for i in range(len(points) - 1):
+                    t1, v1 = points[i]
+                    t2, v2 = points[i + 1]
+                    if t1 < self.animation_clock <= t2:
+                        point_found = True
+                        value = v1 + (v2 - v1) * (self.animation_clock - t1) / (t2 - t1)   # linear interpolation
+                        break
+                if not point_found:
+                    _, value = points[-1]
+                new_color = color_from_value(value)
+                b.color = new_color
